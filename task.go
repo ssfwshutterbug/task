@@ -280,15 +280,15 @@ func check_parameter(args []string, parameter_len int) {
 // help
 func help() {
 	msg := `
-task operation [parameter]
+usage: task operation [parameter]
 
-available operation:
+available options:
 --help      help        show help message
 --init      init        create sqlite table
 --list      list        list unfinished tasks
 --list-all  list-all    list all tasks
 --list-done list-done   list accomplished tasks
---add       add     add a new task
+--add       add         add a new task
 --update    update      update task result
 --delete    delete      delete task
     `
