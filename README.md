@@ -18,7 +18,7 @@ cp task ~/.local/bin
 2. then add task
 
     ```shell
-    task add 'It is time to eat'
+    task add 'It is time to rebuild'
     ```
 
 3. check task
