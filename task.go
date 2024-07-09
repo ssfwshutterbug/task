@@ -11,7 +11,7 @@ import (
 
 const COLUMNLENGTH = 55
 
-var engine = db.Engine{
+var sqldatabase = db.DataBase{
 	Enginename:   "sqlite",
 	Databasepath: "~/.local/share/task",
 	Databasename: "task.sqlite3",
@@ -28,14 +28,19 @@ var color = db.Color{
 }
 
 func main() {
+	var connect db.Connecter
+	connect = &sqldatabase
+	connection := connect.ConnectDB()
 
-	database := engine.ConnectDB()
-	operation(database)
-	database.Close()
+	var task db.Tasker
+	task = &sqldatabase
+
+	operation(connection, task)
+	connection.Close()
 
 }
 
-func operation(database *sql.DB) {
+func operation(connection *sql.DB, task db.Tasker) {
 
 	var args = os.Args
 
@@ -47,28 +52,28 @@ func operation(database *sql.DB) {
 
 	switch operator {
 	case "init", "--init":
-		engine.CreateTable(database)
+		task.CreateTable(connection)
 	case "list", "--list":
-		query := fmt.Sprintf(`select * from %s where %s = '0'`, engine.Tablename, db.Header.Status)
-		engine.QueryTask(database, query, &color, COLUMNLENGTH)
+		query := fmt.Sprintf(`select * from %s where %s = '0'`, sqldatabase.Tablename, db.Header.Status)
+		task.QueryTask(connection, query, &color, COLUMNLENGTH)
 	case "list-all", "--list-all":
-		query := fmt.Sprintf(`select * from %s`, engine.Tablename)
-		engine.QueryTask(database, query, &color, COLUMNLENGTH)
+		query := fmt.Sprintf(`select * from %s`, sqldatabase.Tablename)
+		task.QueryTask(connection, query, &color, COLUMNLENGTH)
 	case "list-done", "--list-done":
-		query := fmt.Sprintf(`select * from %s where %s = '1'`, engine.Tablename, db.Header.Status)
-		engine.QueryTask(database, query, &color, COLUMNLENGTH)
+		query := fmt.Sprintf(`select * from %s where %s = '1'`, sqldatabase.Tablename, db.Header.Status)
+		task.QueryTask(connection, query, &color, COLUMNLENGTH)
 	case "add", "--add":
 		checkParameter(args, 2)
 		content := args[2]
-		engine.AddTask(database, content)
+		task.AddTask(connection, content)
 	case "done", "--done":
 		checkParameter(args, 2)
 		id := args[2]
-		engine.FinishTask(database, id)
+		task.FinishTask(connection, id)
 	case "delete", "--delete":
 		checkParameter(args, 2)
 		id := args[2]
-		engine.DeleteTask(database, id)
+		task.DeleteTask(connection, id)
 	case "help", "--help":
 		help()
 	default:

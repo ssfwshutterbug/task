@@ -15,6 +15,15 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+type Color struct {
+	HeadColorBg string
+	HeadColorFg string
+	Color1Bg    string
+	Color1Fg    string
+	Color2Bg    string
+	Color2Fg    string
+}
+
 type Task struct {
 	Id       string
 	C_time   string
@@ -24,7 +33,7 @@ type Task struct {
 	Task_len string
 }
 
-type Engine struct {
+type DataBase struct {
 	Enginename   string
 	Databasepath string
 	Databasename string
@@ -41,25 +50,19 @@ var Header = Task{
 	Task_len: "taskLength",
 }
 
-type DB interface {
+type Connecter interface {
 	ConnectDB() *sql.DB
-	CreateTable()
-	AddTask()
-	DeleteTask()
-	FinishTask()
-	QueryTask()
 }
 
-type Color struct {
-	HeadColorBg string
-	HeadColorFg string
-	Color1Bg    string
-	Color1Fg    string
-	Color2Bg    string
-	Color2Fg    string
+type Tasker interface {
+	CreateTable(*sql.DB)
+	AddTask(*sql.DB, string)
+	DeleteTask(*sql.DB, string)
+	FinishTask(*sql.DB, string)
+	QueryTask(*sql.DB, string, *Color, int)
 }
 
-func (engine *Engine) ConnectDB() *sql.DB {
+func (d *DataBase) ConnectDB() *sql.DB {
 
 	// create db file if not exist
 	homedir, err := os.UserHomeDir()
@@ -67,16 +70,16 @@ func (engine *Engine) ConnectDB() *sql.DB {
 		fmt.Println(err)
 	}
 
-	database_path := filepath.Join(homedir, strings.TrimLeft(engine.Databasepath, "~"))
+	databasepath := filepath.Join(homedir, strings.TrimLeft(d.Databasepath, "~"))
 
-	if err := os.MkdirAll(database_path, 0755); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(databasepath, 0755); err != nil && !os.IsExist(err) {
 		fmt.Println(err)
 	}
 
-	database := filepath.Join(database_path, engine.Databasename)
+	databasepath = filepath.Join(databasepath, d.Databasename)
 
 	// connect db
-	db, err := sql.Open(engine.Enginename, database)
+	db, err := sql.Open(d.Enginename, databasepath)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -85,7 +88,7 @@ func (engine *Engine) ConnectDB() *sql.DB {
 	return db
 }
 
-func (engine *Engine) CreateTable(db *sql.DB) {
+func (d *DataBase) CreateTable(db *sql.DB) {
 	createTableQuery := fmt.Sprintf(
 		`create table if not exists %s (
         %s integer primary key autoincrement,
@@ -95,7 +98,7 @@ func (engine *Engine) CreateTable(db *sql.DB) {
         %s integer default 0,
         %s integer not null
     );
-    `, engine.Tablename, Header.Id, Header.C_time, Header.Task, Header.F_time, Header.Status, Header.Task_len)
+    `, d.Tablename, Header.Id, Header.C_time, Header.Task, Header.F_time, Header.Status, Header.Task_len)
 
 	_, err := db.Exec(createTableQuery)
 	if err != nil {
@@ -104,7 +107,7 @@ func (engine *Engine) CreateTable(db *sql.DB) {
 }
 
 // add task
-func (engine *Engine) AddTask(db *sql.DB, task string) {
+func (d *DataBase) AddTask(db *sql.DB, task string) {
 	var c_time = time.Now().Format("2006-01-02")
 	var status = "0"
 	var task_len = len(task)
@@ -112,7 +115,7 @@ func (engine *Engine) AddTask(db *sql.DB, task string) {
 	insertQuery := fmt.Sprintf(
 		`insert into %s (%s, %s, %s, %s)
     values ('%s', '%s', '%s', '%v');
-    `, engine.Tablename, Header.C_time, Header.Task, Header.Status, Header.Task_len, c_time, task, status, task_len)
+    `, d.Tablename, Header.C_time, Header.Task, Header.Status, Header.Task_len, c_time, task, status, task_len)
 
 	_, err := db.Exec(insertQuery)
 	if err != nil {
@@ -121,13 +124,13 @@ func (engine *Engine) AddTask(db *sql.DB, task string) {
 }
 
 // finish task
-func (engine *Engine) FinishTask(db *sql.DB, id string) {
+func (d *DataBase) FinishTask(db *sql.DB, id string) {
 	var c_time = time.Now().Format("2006-01-02")
 	var status = "1"
 
 	updateQuery := fmt.Sprintf(
 		`update %s set %s = '%s', %s = %s where %s = %s;
-        `, engine.Tablename, Header.F_time, c_time, Header.Status, status, Header.Id, id)
+        `, d.Tablename, Header.F_time, c_time, Header.Status, status, Header.Id, id)
 
 	_, err := db.Exec(updateQuery)
 	if err != nil {
@@ -136,8 +139,8 @@ func (engine *Engine) FinishTask(db *sql.DB, id string) {
 }
 
 // delete task
-func (engine *Engine) DeleteTask(db *sql.DB, id string) {
-	deleteQuery := fmt.Sprintf(`delete from %s where %s = %s`, engine.Tablename, Header.Id, id)
+func (d *DataBase) DeleteTask(db *sql.DB, id string) {
+	deleteQuery := fmt.Sprintf(`delete from %s where %s = %s`, d.Tablename, Header.Id, id)
 
 	_, err := db.Exec(deleteQuery)
 	if err != nil {
@@ -146,7 +149,7 @@ func (engine *Engine) DeleteTask(db *sql.DB, id string) {
 }
 
 // query data
-func (engine *Engine) QueryTask(db *sql.DB, query string, color *Color, columnlen int) {
+func (d *DataBase) QueryTask(db *sql.DB, query string, color *Color, columnlen int) {
 
 	rows, err := db.Query(query)
 	if err != nil {
