@@ -2,10 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
-	"io"
 	_ "modernc.org/sqlite"
-	"os"
 	"task/db"
 )
 
@@ -42,69 +41,42 @@ func main() {
 
 func operation(connection *sql.DB, task db.Tasker) {
 
-	var args = os.Args
-
-	// if no args, print help msg and exit
-	checkParameter(args, 1)
-
-	// otherwise check args
-	var operator = args[1]
-
-	switch operator {
-	case "init", "--init":
+	flag.BoolFunc("init", "initial database", func(s string) error {
 		task.CreateTable(connection)
-	case "list", "--list":
+		return nil
+	})
+
+	flag.BoolFunc("list", "list unfinished task", func(s string) error {
 		query := fmt.Sprintf(`select * from %s where %s = '0'`, sqldatabase.Tablename, db.Header.Status)
 		task.QueryTask(connection, query, &color, COLUMNLENGTH)
-	case "list-all", "--list-all":
+		return nil
+	})
+
+	flag.BoolFunc("list-all", "list all tasks", func(s string) error {
 		query := fmt.Sprintf(`select * from %s`, sqldatabase.Tablename)
 		task.QueryTask(connection, query, &color, COLUMNLENGTH)
-	case "list-done", "--list-done":
+		return nil
+	})
+
+	flag.BoolFunc("list-done", "list finished tasks", func(s string) error {
 		query := fmt.Sprintf(`select * from %s where %s = '1'`, sqldatabase.Tablename, db.Header.Status)
 		task.QueryTask(connection, query, &color, COLUMNLENGTH)
-	case "add", "--add":
-		checkParameter(args, 2)
-		content := args[2]
-		task.AddTask(connection, content)
-	case "done", "--done":
-		checkParameter(args, 2)
-		id := args[2]
-		task.FinishTask(connection, id)
-	case "delete", "--delete":
-		checkParameter(args, 2)
-		id := args[2]
-		task.DeleteTask(connection, id)
-	case "help", "--help":
-		help()
-	default:
-		help()
+		return nil
+	})
+
+	add := flag.String("add", "nil", "add task")
+	done := flag.String("done", "nil", "mark task has been done")
+	deleteitem := flag.String("delete", "nil", "delete task")
+
+	flag.Parse()
+
+	if *add != "nil" {
+		task.AddTask(connection, *add)
 	}
-
-}
-
-// check parameter
-func checkParameter(args []string, parameter_len int) {
-	if len(args) == parameter_len {
-		help()
-		os.Exit(1)
+	if *done != "nil" {
+		task.FinishTask(connection, *done)
 	}
-}
-
-// help
-func help() {
-	msg := `
-usage: task operation [parameter]
-
-available options:
---help      help        show help message
---init      init        create sqlite table
---list      list        list unfinished tasks
---list-all  list-all    list all tasks
---list-done list-done   list accomplished tasks
---add       add         add a new task
---done      done        update task result
---delete    delete      delete task
-    `
-
-	io.WriteString(os.Stdout, msg+"\n")
+	if *deleteitem != "nil" {
+		task.DeleteTask(connection, *deleteitem)
+	}
 }
